@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INNO STW 提货实时看板</title>
+<style>
+  :root{
+    --gold:#a97c1a; --gold2:#c9a227; --goldbg:#faf3dd; --goldline:#e3c877;
+    --bg:#f4f3ee; --card:#ffffff; --border:#e6e2d6; --line:#efecdf;
+    --text:#23211c; --muted:#78735f; --red:#b32727; --green:#1d7a44;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;min-height:100vh;padding-bottom:60px;}
+  .dark{background:linear-gradient(120deg,#1d1a12,#32290f);color:#f0d97a;padding:16px 20px;}
+  .dark .top{max-width:1500px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .dark h1{font-size:20px;letter-spacing:3px;}
+  .dark .sub{color:#c9bd96;font-size:12px;margin-top:4px;}
+  .btn{background:linear-gradient(135deg,#b8860b,#d4af37);color:#fff;border:none;border-radius:9px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;}
+  .btn:disabled{opacity:.55;cursor:not-allowed;}
+  .btn.ghost{background:transparent;border:1px solid #c9bd96;color:#e8ddb0;font-weight:400;}
+  .wrap{max-width:1500px;margin:0 auto;padding:14px 16px 0;}
+  .banner{background:#fff8e1;border:1px solid var(--goldline);color:#7a5d10;border-radius:10px;padding:9px 14px;font-size:13px;margin-bottom:12px;display:none;}
+  .banner b{color:#a97c1a;}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+  .tab{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:7px 16px;font-size:13px;cursor:pointer;color:var(--muted);}
+  .tab:hover{border-color:var(--gold2);}
+  .tab.on{background:linear-gradient(135deg,#b8860b,#d4af37);color:#fff;font-weight:700;border-color:transparent;}
+  .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;}
+  .toolbar .f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);}
+  .toolbar select,.toolbar input{background:#fbfaf6;border:1px solid #d8d2c2;color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;min-width:130px;}
+  .toolbar select:focus,.toolbar input:focus{border-color:#c9a227;}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 4px;color:var(--muted);font-size:12px;}
+  .stats b{color:#8a6d1f;font-size:14px;}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:12px 0;}
+  .kcard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .kcard .lb{font-size:12px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
+  .kcard .lb .tag{font-size:11px;background:var(--goldbg);color:#a97c1a;border-radius:999px;padding:1px 8px;}
+  .kcard .num{font-size:24px;font-weight:700;color:#8a6d1f;}
+  .kcard .num.sm{font-size:18px;}
+  .kcard .num .u{font-size:12px;color:var(--muted);font-weight:400;margin-left:4px;}
+  .kcard .sub{font-size:12px;color:var(--muted);margin-top:5px;}
+  .kcard .sub.up{color:var(--green);} .kcard .sub.down{color:var(--red);}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-top:14px;}
+  .card h2{display:flex;align-items:center;gap:8px;font-size:15px;color:#8a6d1f;margin-bottom:4px;letter-spacing:1px;}
+  .card h2 .no{flex:none;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#b8860b,#d4af37);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .card .note{font-size:12px;color:var(--muted);margin-bottom:8px;}
+  .tablebox{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:1200px;}
+  th,td{border-bottom:1px solid var(--line);padding:8px 8px;text-align:right;white-space:nowrap;}
+  th{color:#6b6654;font-weight:600;font-size:12px;position:sticky;top:0;background:#faf6ea;}
+  th.l,td.l{text-align:left;}
+  th:first-child,td:first-child{text-align:left;min-width:150px;}
+  tr:hover td{background:#fbfaf5;}
+  tr.total td{background:#f6e9c3;font-weight:700;color:#8a6d1f;border-top:2px solid #d8b95f;border-bottom:none;}
+  .rank{display:inline-block;width:20px;height:20px;border-radius:50%;background:#f1ecdc;color:#8a6d1f;font-size:11px;text-align:center;line-height:20px;margin-right:6px;}
+  .rank.t1{background:linear-gradient(135deg,#e8b91f,#b8860b);color:#fff;}
+  .rank.t2{background:#c9c4b2;color:#fff;}
+  .rank.t3{background:#cd8f5a;color:#fff;}
+  .ok{color:var(--green);} .warn{color:#c07f10;} .bad{color:var(--red);}
+  .empty{color:var(--muted);text-align:center;padding:26px 0;font-size:14px;}
+  .muted{color:var(--muted);font-size:12px;margin-top:8px;}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px;}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px;}
+</style>
+</head>
+<body>
+<div class="dark">
+  <div class="top">
+    <div>
+      <h1>INNO · STW 提货实时看板</h1>
+      <div class="sub" id="subLine">加载中…</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn ghost" id="demoBtn" onclick="toggleDemo()">预览演示数据</button>
+      <button class="btn" id="refreshBtn" onclick="loadAll()">立即刷新</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="banner" id="configBanner">
+    <b>当前为预览模式</b>：尚未连接数据库。看板展示的是内置示例数据，用于确认布局与字段。
+    上线步骤见 <b>部署上线文档.md</b>：填好 SUPABASE_URL / SUPABASE_ANON_KEY 后即读真实数据。
+  </div>
+
+  <div class="tabs" id="brandTabs"></div>
+
+  <div class="toolbar">
+    <div class="f"><span>大区</span><select id="regionFilter"><option value="">全部大区</option></select></div>
+    <div class="f"><span>地市</span><select id="areaFilter"><option value="">全部地市</option></select></div>
+    <div class="f"><span>排序</span>
+      <select id="sortSel">
+        <option value="cur">当月提货 ↓</option>
+        <option value="ytd">YTD 定稿 ↓</option>
+        <option value="rate">YTD 达成率 ↓</option>
+      </select>
+    </div>
+    <div class="f"><span>搜索 M3</span><input id="searchBox" placeholder="输入姓名" oninput="renderTable()"></div>
+  </div>
+
+  <div class="stats">
+    <span>刷新于：<b id="statTime">-</b></span>
+    <span>M3 数：<b id="statM3">0</b></span>
+    <span>有当月流水：<b id="statLive">0</b> 人</span>
+    <span>定稿期间：<b id="statPeriod">2026.1-7</b></span>
+  </div>
+
+  <div class="cards" id="kpiCards"></div>
+
+  <div class="card">
+    <h2><span class="no">1</span> M3 提货看板 · 当月实时 ‖ YTD 定稿</h2>
+    <div class="note">左组=本月实时提货（日流水累计）；右组=YTD 定稿（截至上月末）+ 达成率（对 FY BGT）。当前品牌：<b id="curBrandName">汇总</b></div>
+    <div class="tablebox"><table id="m3Table">
+      <thead><tr id="tblHead"></tr></thead>
+      <tbody id="tblBody"></tbody>
+    </table></div>
+    <div class="legend">
+      <span><i style="background:#f6e9c3;"></i>合计行</span>
+      <span><i style="background:linear-gradient(135deg,#e8b91f,#b8860b);"></i>当月提货 TOP3</span>
+      <span class="ok">红字=已超目标</span><span class="warn">黄字=达成80-100%</span><span class="bad">绿字=低于80%</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="no">2</span> 口径说明</h2>
+    <div class="tablebox">
+      <table style="min-width:900px;font-size:12px;">
+        <thead><tr><th class="l">字段</th><th class="l">口径</th><th class="l">数据源</th><th class="l">刷新</th></tr></thead>
+        <tbody>
+          <tr><td class="l">当月提货 STW</td><td class="l">本月1日至今日的提货量累计（进行中）</td><td class="l">stw_daily_records 日流水</td><td class="l">每日 T+1 灌入</td></tr>
+          <tr><td class="l">上月同期 MTD</td><td class="l">上一个自然月同口径参考（用于环比）</td><td class="l">stw_daily_records 历史日流水</td><td class="l">每日 T+1</td></tr>
+          <tr><td class="l">YTD STW（定稿）</td><td class="l">1月至上月定稿累计（当前 2026.1-7）</td><td class="l">monthly_final</td><td class="l">每月定稿一次</td></tr>
+          <tr><td class="l">YTD 达成率（KPI卡）</td><td class="l">YTD STW ÷ FY BGT（品牌整体口径，仅顶部KPI卡展示）</td><td class="l">monthly_bgt</td><td class="l">每月定稿</td></tr>
+          <tr><td class="l">M3</td><td class="l">区域负责人（62 人结构，与既有 M3 看板一致）</td><td class="l">monthly_final.m3_name</td><td class="l">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+ * ① 配置区（上线时替换为你的项目值）
+ * Supabase 后台 → Settings → API → Project URL / anon public key
+ * ============================================================ */
+const SUPABASE_URL = "https://iumiijbblwymxiljwjjgb.supabase.co";     // ← 改成你的
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1bWlpamJsd3lteGlsandqamdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMzc5NTgsImV4cCI6MjEwMzkxMzk1OH0.9FkrNovmgb3cDh-4OdrUyXlsKWroIack-1qBi6HpG7k";                // ← 改成你的
+
+/* 品牌页签：key 用于 SQL 过滤，name 用于展示，finalName 对应 monthly_final.brand */
+const BRANDS = [
+  {key:"ALL",      name:"汇总",      finalName:"汇总(全品牌)"},
+  {key:"BLACKGOLD",name:"黑金",      finalName:"黑金"},
+  {key:"1900",     name:"1900",      finalName:"1900"},
+  {key:"CORONA",   name:"科罗娜罐",  finalName:"科罗娜罐"},
+  {key:"740",      name:"740",       finalName:"740"},
+  {key:"1L",       name:"1L",        finalName:"1L"},
+  {key:"NAB",      name:"NAB",       finalName:"NAB"},
+];
+
+let cfg = {brand:"ALL", region:"", area:"", sort:"cur", search:""};
+let rows = [];          // 当前看板 M3 行（已含当月实时）
+let regionSet = new Set(), areaSet = new Set();
+let demoMode = (SUPABASE_URL.indexOf("你的项目") >= 0);
+
+/* ---------------- Supabase 读取 ---------------- */
+async function sbFetch(table, query){
+  const url = SUPABASE_URL + "/rest/v1/" + table + "?" + query;
+  const r = await fetch(url, {
+    headers:{
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+      "Content-Type": "application/json",
+      "Accept": "application/vnd.pgrst.object+json".indexOf("pgrst") < 0 ? "application/json" : "application/json",
+    }
+  });
+  if(!r.ok) throw new Error(table + " HTTP " + r.status);
+  return r.json();
+}
+
+async function loadAll(){
+  document.getElementById("refreshBtn").disabled = true;
+  try{
+    if(demoMode){ loadDemo(); return; }
+    const f = BRANDS.find(b=>b.key===cfg.brand).finalName;
+    // 1) 定稿 M3 行
+    const mf = await sbFetch("monthly_final",
+      "brand=eq." + encodeURIComponent(f) + "&select=brand,region,area,m3_name,ytd_stw,mtd_stw,ytd_str,ka_pts,tt_pts,cr_pts&order=ytd_stw.desc");
+    // 2) 当月+上月实时日流水（按 M3 聚合，用于当月累计与环比）
+    const today = new Date();
+    const mStart = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-01";
+    const prevStart = today.getMonth()===0
+      ? (today.getFullYear()-1)+"-12-01"
+      : today.getFullYear()+"-"+String(today.getMonth()).padStart(2,"0")+"-01";
+    let daily = [];
+    try{
+      const brandQ = cfg.brand==="ALL" ? "" : "&brand=eq." + encodeURIComponent(f);
+      daily = await sbFetch("stw_daily_records",
+        "record_date=gte." + prevStart + "&select=brand,region,area,m3,stw_hl,record_date" + brandQ);
+    }catch(e){ console.warn("日流水读取失败(可能尚未灌数):", e); }
+    // 3) FY BGT（品牌整体；汇总=各品牌 BUE TOTAL 之和）
+    let bgt = 0;
+    try{
+      if(cfg.brand==="ALL"){
+        const bs = await sbFetch("monthly_bgt", "region=eq.BUE%20TOTAL&select=fy_bgt");
+        bgt = bs.reduce((s,x)=>s+Number(x.fy_bgt||0),0);
+      }else{
+        const bs = await sbFetch("monthly_bgt", "region=eq.BUE%20TOTAL&brand=eq." + encodeURIComponent(f) + "&select=fy_bgt");
+        if(bs.length) bgt = Number(bs[0].fy_bgt||0);
+      }
+    }catch(e){ console.warn(e); }
+
+    // 聚合日流水 → m3 维度
+    const curMap = {}, lastMap = {};
+    daily.forEach(d=>{
+      const k = (d.m3||"其他");
+      const hl = Number(d.stw_hl||0);
+      const dt = (d.record_date||"").slice(0,7);
+      const ym = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0");
+      const lastYm = today.getMonth()===0 ? (today.getFullYear()-1)+"-12" : today.getFullYear()+"-"+String(today.getMonth()).padStart(2,"0");
+      if(dt===ym) curMap[k] = (curMap[k]||0)+hl;
+      else if(dt===lastYm) lastMap[k] = (lastMap[k]||0)+hl;
+    });
+
+    rows = mf.map(r=>({
+      region:r.region, area:r.area, m3:r.m3_name,
+      ytd:Number(r.ytd_stw||0), mtd_ref:Number(r.mtd_stw||0),
+      cur:curMap[r.m3_name]||0, last:lastMap[r.m3_name]||0,
+      ytd_str:Number(r.ytd_str||0),
+      ka:Number(r.ka_pts||0), tt:Number(r.tt_pts||0), cr:Number(r.cr_pts||0),
+    }));
+    // 日流水里有但定稿表没有的 M3（如仅当月新开），补行
+    Object.keys(curMap).forEach(k=>{
+      if(!rows.some(r=>r.m3===k)){
+        rows.push({region:"",area:"",m3:k,ytd:0,mtd_ref:0,cur:curMap[k],last:lastMap[k]||0,ytd_str:0,ka:0,tt:0,cr:0});
+      }
+    });
+
+    render(cfg.brand==="ALL" ? null : f, bgt);
+  }catch(err){
+    document.getElementById("tblBody").innerHTML =
+      '<tr><td colspan="10" class="empty">读取失败：' + err.message +
+      '<br>请检查 SUPABASE_URL / SUPABASE_ANON_KEY 是否填写，且已运行 supabase_setup.sql</td></tr>';
+    console.error(err);
+  }finally{
+    document.getElementById("refreshBtn").disabled = false;
+  }
+}
+
+/* ---------------- 渲染 ---------------- */
+function render(brandFilter, fyBgt){
+  // 筛选器
+  regionSet = new Set(rows.map(r=>r.region).filter(x=>x && x!=="其他"));
+  areaSet   = new Set(rows.map(r=>r.area).filter(x=>x));
+  fillSelect("regionFilter", regionSet, cfg.region, ()=>{ cfg.region=this.value; fillArea(); renderTable(); });
+  fillArea();
+  document.getElementById("statM3").textContent = rows.length;
+  const liveN = rows.filter(r=>r.cur>0).length;
+  document.getElementById("statLive").textContent = liveN;
+  document.getElementById("curBrandName").textContent = BRANDS.find(b=>b.key===cfg.brand).name;
+  const now = new Date();
+  document.getElementById("statTime").textContent = now.toLocaleString("zh-CN",{hour12:false});
+  document.getElementById("subLine").textContent =
+    (demoMode? "预览模式 · 内置示例数据" : "实时读取 Supabase") +
+    " · 页面每 60 秒自动刷新 · 最新数据日期见当月实时列";
+
+  renderKpi(fyBgt);
+  renderTable();
+}
+
+function fillArea(){
+  // 依据当前 region 过滤 area
+  let set = new Set(rows.filter(r=>!cfg.region || r.region===cfg.region).map(r=>r.area).filter(x=>x));
+  const sel = document.getElementById("areaFilter");
+  sel.innerHTML = '<option value="">全部地市</option>';
+  [...set].sort().forEach(a=>{
+    const o = document.createElement("option"); o.value=a; o.textContent=a; sel.appendChild(o);
+  });
+  if(![...set].includes(cfg.area)) cfg.area = "";
+  sel.value = cfg.area;
+}
+
+function fillSelect(id, set, cur, onchange){
+  const sel = document.getElementById(id);
+  const prev = cur;
+  sel.innerHTML = "";
+  const all = document.createElement("option"); all.value=""; all.textContent = id==="regionFilter"?"全部大区":"全部地市"; sel.appendChild(all);
+  [...set].sort().forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; sel.appendChild(o); });
+  sel.value = [...set].includes(prev)? prev : "";
+  sel.onchange = onchange;
+}
+
+function renderKpi(fyBgt){
+  const totCur = rows.reduce((s,r)=>s+r.cur,0);
+  const totYtd = rows.reduce((s,r)=>s+r.ytd,0);
+  const totLast= rows.reduce((s,r)=>s+r.last,0);
+  const ytdRate = fyBgt>0 ? (totYtd/fyBgt*100) : null;
+  const monthAvg = fyBgt>0 ? fyBgt/12 : 0;
+  const curRate = monthAvg>0 ? (totCur/monthAvg*100) : null;
+  const mom = totLast>0 ? ((totCur-totLast)/totLast*100) : null;
+  const fmt = n=>n==null?"—":(Number.isFinite(n)? n.toLocaleString("zh-CN",{maximumFractionDigits:0}) : "—");
+  const fmt1 = n=>n==null?"—":(Number.isFinite(n)? n.toLocaleString("zh-CN",{maximumFractionDigits:1}) : "—");
+
+  let cards = "";
+  cards += '<div class="kcard"><div class="lb">当月提货 STW <span class="tag">实时</span></div>' +
+    '<div class="num">' + fmt(totCur) + '<span class="u">HL</span></div>' +
+    '<div class="sub ' + (mom>=0?"up":"down") + '">' + (mom==null?"上月暂无流水":(mom>=0?"▲ ":"▼ ")+Math.abs(mom).toFixed(1)+"% vs 上月同期") + '</div></div>';
+  cards += '<div class="kcard"><div class="lb">当月进度 <span class="tag">对月均BGT</span></div>' +
+    '<div class="num">' + (curRate==null?"—":curRate.toFixed(1)+"%") + '</div>' +
+    '<div class="sub">' + (monthAvg>0? "月均目标 "+fmt(monthAvg)+" HL":"未配置 FY BGT") + '</div></div>';
+  cards += '<div class="kcard"><div class="lb">YTD STW <span class="tag">定稿 1-7月</span></div>' +
+    '<div class="num">' + fmt(totYtd) + '<span class="u">HL</span></div>' +
+    '<div class="sub">定稿数据已入库 ' + rows.length + ' 个 M3</div></div>';
+  cards += '<div class="kcard"><div class="lb">YTD 达成率 <span class="tag">对 FY BGT</span></div>' +
+    '<div class="num">' + (ytdRate==null?"—":ytdRate.toFixed(1)+"%") + '</div>' +
+    '<div class="sub">' + (fyBgt>0? "FY BGT "+fmt(fyBgt)+" HL":"未配置 FY BGT") + '</div></div>';
+  document.getElementById("kpiCards").innerHTML = cards;
+}
+
+function renderTable(){
+  const kw = (document.getElementById("searchBox").value||"").trim();
+  let list = rows.filter(r=>
+    (!cfg.region || r.region===cfg.region) &&
+    (!cfg.area   || r.area===cfg.area) &&
+    (!kw || (r.m3||"").includes(kw) || (r.region||"").includes(kw) || (r.area||"").includes(kw))
+  );
+  const sortKey = document.getElementById("sortSel").value;
+  list.sort((a,b)=>{
+    if(sortKey==="ytd") return b.ytd-a.ytd;
+    if(sortKey==="rate"){ const ar=b.ytd-a.ytd; return ar!==0?ar:b.cur-a.cur; }
+    return b.cur-a.cur;  // cur 默认
+  });
+  const curTotal = rows.reduce((s,r)=>s+r.cur,0);
+  const head = ["M3 / 区域","当月提货 STW","占当月比","上月同期","环比","YTD 定稿 STW","YTD 定稿排名","YTD STR","铺货点(KA/TT/CR)"];
+  const fmt = n=>n.toLocaleString("zh-CN",{maximumFractionDigits:0});
+  const pct = (a,b)=>b>0?(a/b*100).toFixed(1)+"%":"—";
+
+  let h = head.map(x=>'<th class="'+(x.includes("M3")||x.includes("区域")?"l":"")+'">'+x+'</th>').join("");
+  document.getElementById("tblHead").innerHTML = h;
+
+  const ytdRank = {};
+  rows.filter(r=>r.ytd>0).sort((a,b)=>b.ytd-a.ytd).forEach((r,i)=>{ ytdRank[r.m3]=i+1; });
+  const totCells = (totCur,totLast,totYtd)=>{
+    const mom=totLast>0?((totCur-totLast)/totLast*100):null;
+    return '<td>'+(totCur>0?fmt(totCur):"—")+'</td><td>'+(curTotal>0?"100.0%":"—")+'</td>' +
+      '<td>'+(totLast>0?fmt(totLast):"—")+'</td><td>'+(mom==null?"—":(mom>=0?"▲ ":"▼ ")+Math.abs(mom).toFixed(1)+"%")+'</td>' +
+      '<td>'+fmt(totYtd)+'</td><td>—</td><td>—</td><td>—</td>';
+  };
+
+  let body = "";
+  list.forEach((r,i)=>{
+    const mom = r.last>0 ? ((r.cur-r.last)/r.last*100) : null;
+    const pts = [r.ka,r.tt,r.cr].filter(v=>v>0).join("/");
+    body += '<tr>' +
+      '<td><span class="rank'+(i<3&&r.cur>0?" t"+(i+1):"")+'">'+(i+1)+'</span>' +
+        '<b>'+(r.m3||"—")+'</b>'+(r.region?('<div class="muted" style="margin-top:2px;">'+r.region+(r.area&&r.area!==r.region?" · "+r.area:"")+'</div>'):'')+'</td>' +
+      '<td><b>'+(r.cur>0?fmt(r.cur):"—")+'</b></td>' +
+      '<td>'+(curTotal>0?(r.cur/curTotal*100).toFixed(1)+"%":"—")+'</td>' +
+      '<td>'+(r.last>0?fmt(r.last):"—")+'</td>' +
+      '<td class="'+(mom==null?"":(mom>=0?"ok":"bad"))+'">'+(mom==null?"—":(mom>=0?"▲ ":"▼ ")+Math.abs(mom).toFixed(1)+"%")+'</td>' +
+      '<td><b>'+(r.ytd>0?fmt(r.ytd):"—")+'</b></td>' +
+      '<td>'+(r.ytd>0?(ytdRank[r.m3]||"—"):"—")+'</td>' +
+      '<td>'+(r.ytd_str>0?fmt(r.ytd_str):"—")+'</td>' +
+      '<td>'+(pts?pts:"—")+'</td>' +
+      '</tr>';
+  });
+  if(!body) body = '<tr><td colspan="9" class="empty">当前筛选下无数据</td></tr>';
+  else{
+    const flt = rows.filter(r=>(!cfg.region||r.region===cfg.region)&&(!cfg.area||r.area===cfg.area));
+    const totCur=flt.reduce((s,r)=>s+r.cur,0);
+    const totYtd=flt.reduce((s,r)=>s+r.ytd,0);
+    const totLast=flt.reduce((s,r)=>s+r.last,0);
+    body += '<tr class="total"><td>合计（当前筛选）</td>' + totCells(totCur,totLast,totYtd) + '</tr>';
+  }
+  document.getElementById("tblBody").innerHTML = body;
+}
+
+/* ---------------- 演示数据（未连库时预览布局） ---------------- */
+function toggleDemo(){
+  demoMode = !demoMode;
+  document.getElementById("demoBtn").textContent = demoMode? "预览演示数据":"演示数据";
+  loadAll();
+}
+function loadDemo(){
+  const demoRows = [
+    {region:"杭嘉湖",area:"杭州市",m3:"张伟",ytd:38421,mtd_ref:1560,cur:3112,last:2880,ytd_str:35210,ka:210,tt:180,cr:95},
+    {region:"杭嘉湖",area:"嘉兴市",m3:"李娜",ytd:35902,mtd_ref:1420,cur:2874,last:2710,ytd_str:33100,ka:195,tt:160,cr:88},
+    {region:"宁绍舟",area:"宁波市辖区",m3:"王强",ytd:33148,mtd_ref:1310,cur:2651,last:2490,ytd_str:30220,ka:180,tt:155,cr:80},
+    {region:"温台",area:"温州市",m3:"赵敏",ytd:29870,mtd_ref:1210,cur:2430,last:2305,ytd_str:27560,ka:165,tt:140,cr:75},
+    {region:"上海",area:"上海市",m3:"陈杰",ytd:27654,mtd_ref:1150,cur:2318,last:2200,ytd_str:25890,ka:150,tt:132,cr:70},
+    {region:"杭嘉湖",area:"湖州市",m3:"刘洋",ytd:25890,mtd_ref:1080,cur:2196,last:2090,ytd_str:24110,ka:140,tt:128,cr:66},
+    {region:"其他",area:"其他",m3:"孙丽",ytd:24012,mtd_ref:990,cur:2020,last:1930,ytd_str:22580,ka:120,tt:110,cr:55},
+    {region:"宁绍舟",area:"绍兴市",m3:"周涛",ytd:22134,mtd_ref:920,cur:1876,last:1790,ytd_str:20560,ka:115,tt:105,cr:52},
+  ];
+  rows = demoRows;
+  demoMode = true;
+  document.getElementById("configBanner").style.display = "block";
+  document.getElementById("demoBtn").textContent = "退出演示";
+  const f = BRANDS.find(b=>b.key===cfg.brand).finalName;
+  const demoBgt = cfg.brand==="ALL"?363998:(cfg.brand==="BLACKGOLD"?129000:45000);
+  render(f, demoBgt);
+}
+
+/* ---------------- 事件与启动 ---------------- */
+document.getElementById("brandTabs").innerHTML = BRANDS.map(b=>
+  '<button class="tab'+(b.key==="ALL"?" on":"")+'" data-k="'+b.key+'">'+b.name+'</button>').join("");
+document.querySelectorAll("#brandTabs .tab").forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll("#brandTabs .tab").forEach(x=>x.classList.remove("on"));
+    t.classList.add("on");
+    cfg.brand = t.dataset.k;
+    loadAll();
+  };
+});
+document.getElementById("regionFilter").onchange = function(){ cfg.region=this.value; fillArea(); renderTable(); };
+document.getElementById("areaFilter").onchange   = function(){ cfg.area=this.value; renderTable(); };
+document.getElementById("sortSel").onchange      = function(){ renderTable(); };
+document.getElementById("searchBox").addEventListener("keyup", ()=>renderTable());
+
+loadAll();
+setInterval(loadAll, 60000);   // 每 60 秒自动刷新
+</script>
+</body>
+</html>
