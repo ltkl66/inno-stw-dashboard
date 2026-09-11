@@ -283,7 +283,7 @@
 
   <!-- 模块⑥ 排行榜（第8页签：M3 实时累计榜 + 9月 LE vs MTD 进度 + 4 张重点 SKU 榜；随顶部大区收窄重排；内部参考页） -->
   <div class="card" id="rankCard" style="display:none;">
-    <h2><span class="no" id="noR">8</span> 排行榜 · M3 实时累计 &amp; 重点 SKU <span class="tag-note">按实时累计（YTD 1-8月 + MTD 9月）绝对值排序；含 9月 LE vs MTD 进度（黑金/1900 分品牌）；外发建议用个人成绩卡/仅 Top，勿公开全量</span></h2>
+    <h2><span class="no" id="noR">8</span> 排行榜 · M3 实时累计 &amp; 重点 SKU <span class="tag-note">按实时累计（YTD 1-8月 + MTD 9月）绝对值排序；含 9月 LE vs MTD 进度（黑金/1900 分品牌）；外发建议用个人提货进度/仅 Top，勿公开全量</span></h2>
     <div class="note" id="rankNote"></div>
     <div class="m3bar">
       <div class="f"><span>定位 M3（姓名 / 大区 / 地市）</span><input id="rankSearch" placeholder="输入关键词…" oninput="onRankSearch()"></div>
@@ -936,7 +936,7 @@ function renderRank(){
   document.getElementById("rankNote").innerHTML =
     '排序依据：<b>M3 实时累计提货量</b>（YTD 1-8月 + MTD 9月 加总，innovation_sku=Y，跨 6 品牌加总）降序。当前范围：<b>'+scopeTxt+'</b>'+
     (cfg.region?'（选大区后为<b>范围内重新排名</b>，非BUE全量名次）':'')+
-    '；实时累计为 0/空的 M3 置榜单末尾（'+nNo+' 人）。外发建议：个人成绩卡或仅 Top 榜，勿公开全量明细。';
+    '；实时累计为 0/空的 M3 置榜单末尾（'+nNo+' 人）。外发建议：个人提货进度或仅 Top 榜，勿公开全量明细。';
   document.getElementById("filterSummary").innerHTML =
     '<span class="k">排行榜</span><span>大区 = <b>'+(cfg.region||"全部")+'</b></span>'+
     '<span class="hit">M3 '+rows.length+' / '+allN+' 人</span>'+
